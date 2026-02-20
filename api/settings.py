@@ -31,7 +31,7 @@ INSTALLED_APPS = [
     'stores.apps.StoresConfig',
 
     'rest_framework',
-    'cors_headers'
+    # 'cors_headers'
 
 ]
 

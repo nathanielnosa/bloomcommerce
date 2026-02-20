@@ -35,7 +35,7 @@ class CategoryRetrieveDeleteView(APIView):
     # get single
     def get(self,request,id):
         try:
-            category = get_objects_or_404(Category, id =id)
+            category = get_object_or_404(Category, id =id)
             serializers = CategorySerializer(category)
             return Response(serializers.data, status=status.HTTP_200_OK)
         except Exception as e:
@@ -44,7 +44,7 @@ class CategoryRetrieveDeleteView(APIView):
     # update
     def put(self,request,id):
         try:
-            category = get_objects_or_404(Category, id =id)
+            category = get_object_or_404(Category, id =id)
             serializers = CategorySerializer(category, data=request.data, partial=True)
             if serializers.is_valid():
                 serializers.save()
@@ -56,7 +56,7 @@ class CategoryRetrieveDeleteView(APIView):
     # delete
     def delete(self,request,id):
         try:
-            category = get_objects_or_404(Category, id =id)
+            category = get_object_or_404(Category, id =id)
             category.delete()
             return Response({"Message":"Category Deleted"}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
