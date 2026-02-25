@@ -1,4 +1,7 @@
 from django.db import models
+from users.models import Profile
+import secrets
+from .paystack import Paystack
 
 # ::::::::: CATEGORY :::::::::
 class Category(models.Model):
@@ -41,26 +44,75 @@ class Products(models.Model):
 
 # ::::::::: CART :::::::::
 class Cart(models.Model):
-    # person
-    # total
-    # created
+    profile = models.ForeignKey(Profile, on_delete=models.CASCADE,null=True,blank=True)
+    total = models.PositiveIntegerField(default=0)
+    created = models.DateTimeField(auto_now_add=True,null=True)
+    
     def __str__(self):
-        pass
+        return str(self.total)
 
 # ::::::::: CART PRODUCT :::::::::
 class CartProduct(models.Model):
+    cart = models.ForeignKey(Cart, on_delete=models.CASCADE, null=True)
+    product = models.ForeignKey(Products, on_delete=models.CASCADE, null=True)
+    quantity = models.PositiveIntegerField(null=True)
+    subtotal = models.PositiveIntegerField(null=True)
+    created = models.DateTimeField(auto_now_add=True,null=True)
+
 
     def __str__(self):
-        pass
+        return f'{self.cart.id} - {self.product.title}({self.quantity})'
 
 # ::::::::: ORDER :::::::::
+ORDER_STATUS=(
+    ('pending','pending'),
+    ('completed','completed'),
+    ('canceled','canceled'),
+)
+PAYMENT_METHOD=(
+    ('paystack','paystack'),
+    ('stripe','stripe'),
+    ('paypal','paypal'),
+)
 class Order(models.Model):
+    cart = models.ForeignKey(Cart, on_delete=models.CASCADE, null=True)
+    order_by = models.CharField(max_length=255, null=True)
+    shipping_address = models.TextField(null=True)
+    email = models.EmailField(null=True)
+    mobile = models.CharField(max_length=50,null=True)
+    subtotal = models.BigIntegerField(null=True)
+    amount = models.BigIntegerField(null=True)
+    order_status = models.CharField(max_length=50,choices=ORDER_STATUS ,default='pending')
+    payment_method = models.CharField(max_length=50,choices=PAYMENT_METHOD ,default='paystack')
+    payment_completed = models.BooleanField(default=False)
+    ref = models.CharField(max_length=255, unique=True, null=True)
 
     def __str__(self):
-        pass
-
-
-# category - text
-# products - title,reviews,price, discount price, instock,description, size (s,m,l,xl),color,Product Specifications,Material,Washing Instructions,Wearing,weight, image*6
-#cart -  total, user
-#cartproduct - cart, products, quantity,subtotal,amount
+        return f'OrderId-{self.id} - {self.amount}'
+    
+    def save(self, *args,**kwargs):
+        while not self.ref:
+            ref = secrets.token_urlsafe(50)
+            obj_with_sm_ref = Order.objects.filter(ref=ref)
+            if not obj_with_sm_ref:
+                self.ref = ref
+        super().save(*args,**kwargs)
+    
+    def amount_value(self)->int:
+        self.amount * 100
+    
+    # verify payment
+    def verify_payment(self):
+        paystack = Paystack()
+        status, result = paystack.verify_payment(self.ref)
+        if status and result.get("status") == "success":
+            if result['amount'] / 100 == self.amount:
+                self.payment_completed = True
+                self.save()
+                return True
+            if self.payment_completed == True:
+                self.cart = None
+                self.save()
+                return True
+            return False
+        return False
